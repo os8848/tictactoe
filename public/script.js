@@ -1,14 +1,23 @@
 const socket = io();
 
+const nameInput = document.getElementById("nameInput");
+const roomInput = document.getElementById("roomInput");
+const createJoinBtn = document.getElementById("createJoinBtn");
+const roomListEl = document.getElementById("roomList");
+
+const lobbyEl = document.getElementById("lobby");
+const gameEl = document.getElementById("game");
 const boardEl = document.getElementById("board");
 const statusEl = document.getElementById("status");
-const joinBtn = document.getElementById("joinBtn");
-const roomInput = document.getElementById("roomInput");
+const leaveBtn = document.getElementById("leaveBtn");
+const restartBtn = document.getElementById("restartBtn");
+const scoreboardEl = document.getElementById("scoreboard");
 
-let currentRoom = null;
 let mySymbol = null;
 let myTurn = false;
+let currentRoom = null;
 
+// Setup board
 for (let i = 0; i < 9; i++) {
   let cell = document.createElement("div");
   cell.classList.add("cell");
@@ -16,15 +25,27 @@ for (let i = 0; i < 9; i++) {
   boardEl.appendChild(cell);
 }
 
-joinBtn.addEventListener("click", () => {
+// Join room
+createJoinBtn.addEventListener("click", () => {
   const room = roomInput.value.trim();
-  if (room) {
-    currentRoom = room;
-    socket.emit("joinRoom", room);
-    statusEl.innerText = `Joined room: ${room}. Waiting for another player...`;
+  const name = nameInput.value.trim();
+  if (!room || !name) {
+    alert("Enter your name and a room name");
+    return;
   }
+
+  socket.emit("joinRoom", { room, name });
+  currentRoom = room;
+  lobbyEl.style.display = "none";
+  gameEl.style.display = "block";
 });
 
+// Leave room
+leaveBtn.addEventListener("click", () => {
+  location.reload(); // simple reset
+});
+
+// Board click
 boardEl.addEventListener("click", (e) => {
   if (!myTurn) return;
   if (!e.target.classList.contains("cell")) return;
@@ -33,10 +54,35 @@ boardEl.addEventListener("click", (e) => {
   socket.emit("makeMove", { room: currentRoom, index });
 });
 
+// Restart game
+restartBtn.addEventListener("click", () => {
+  socket.emit("restartGame", currentRoom);
+  restartBtn.style.display = "none";
+});
+
+// --- Socket Events ---
+socket.on("roomList", (rooms) => {
+  roomListEl.innerHTML = "";
+  for (let room in rooms) {
+    let li = document.createElement("li");
+    li.innerText = `${room} (${rooms[room].join(", ")})`;
+    li.onclick = () => {
+      roomInput.value = room;
+    };
+    roomListEl.appendChild(li);
+  }
+});
+
+socket.on("roomUpdate", (game) => {
+  let player = game.players.find((p) => p.id === socket.id);
+  mySymbol = player ? player.symbol : null;
+  updateScoreboard(game.players);
+});
+
 socket.on("startGame", (turn) => {
-  mySymbol = turn; // first player gets X, second gets O
-  myTurn = mySymbol === "X";
   statusEl.innerText = `Game started! You are ${mySymbol}`;
+  myTurn = (mySymbol === turn);
+  updateTurnMessage(turn);
 });
 
 socket.on("updateBoard", (game) => {
@@ -46,5 +92,41 @@ socket.on("updateBoard", (game) => {
   });
 
   myTurn = (game.turn === mySymbol);
-  statusEl.innerText = myTurn ? "Your turn!" : "Opponent's turn...";
+  updateTurnMessage(game.turn);
+  updateScoreboard(game.players);
 });
+
+socket.on("gameOver", ({ winner, board }) => {
+  let cells = document.querySelectorAll(".cell");
+  board.forEach((val, i) => {
+    cells[i].innerText = val ? val : "";
+  });
+
+  if (winner) {
+    statusEl.innerText = `${winner.name} (${winner.symbol}) wins!`;
+  } else {
+    statusEl.innerText = "It's a draw!";
+  }
+
+  restartBtn.style.display = "block";
+});
+
+socket.on("roomFull", () => {
+  alert("Room is full. Try another room.");
+  location.reload();
+});
+
+// Helpers
+function updateTurnMessage(turn) {
+  if (myTurn) {
+    statusEl.innerText = "Your turn!";
+  } else {
+    statusEl.innerText = "Opponent's turn...";
+  }
+}
+
+function updateScoreboard(players) {
+  scoreboardEl.innerHTML = players
+    .map((p) => `${p.name} (${p.symbol}): ${p.score}`)
+    .join(" | ");
+}

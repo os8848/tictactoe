@@ -6,13 +6,24 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <h1>Tic Tac Toe Online</h1>
-  <div>
-    <input type="text" id="roomInput" placeholder="Enter Room Name">
-    <button id="joinBtn">Join Room</button>
+  <h1>🎮 Tic Tac Toe Online</h1>
+
+  <div id="lobby">
+    <input type="text" id="nameInput" placeholder="Enter your name">
+    <input type="text" id="roomInput" placeholder="Room name">
+    <button id="createJoinBtn">Create / Join Room</button>
+
+    <h2>Available Rooms</h2>
+    <ul id="roomList"></ul>
   </div>
-  <h2 id="status">Join a room to start playing</h2>
-  <div class="board" id="board"></div>
+
+  <div id="game" style="display:none;">
+    <h2 id="status">Waiting for players...</h2>
+    <div id="scoreboard"></div>
+    <div class="board" id="board"></div>
+    <button id="restartBtn" style="display:none;">Restart</button>
+    <button id="leaveBtn">Leave Room</button>
+  </div>
 
   <script src="/socket.io/socket.io.js"></script>
   <script src="script.js"></script>
